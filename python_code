@@ -19,11 +19,11 @@ def login_to_email():
     driver.get('https://mail.ru')
     try:
         elem = driver.find_element_by_id('mailbox:login')
-        elem.send_keys('j****')
+        elem.send_keys('j****') # need to input email login
         elem.send_keys(Keys.RETURN)
         time.sleep(1)
         elem = driver.find_element_by_id("mailbox:password")
-        elem.send_keys('a****')
+        elem.send_keys('a****') # need to input email password
         elem.send_keys(Keys.RETURN)
         time.sleep(2)
         print('Login - success')
@@ -70,7 +70,7 @@ def go_to_next_page(driver):
 
 def upload_to_mongo(upload_data):
     print('Uploading to Mongo?')
-    mongo_url = 'mongodb+srv://test2:test2@cluster0-bvxkt.gcp.mongodb.net/test?retryWrites=true&w=majority'
+    mongo_url = 'mongodb+srv://**1**:**2**@cluster0-bvxkt.gcp.mongodb.net/test?retryWrites=true&w=majority'. # 1 and 2 need to input username and password
     client = pymongo.MongoClient(mongo_url, ssl=True, ssl_cert_reqs=ssl.CERT_NONE)
     db = client.get_database('my_emails_db')
     records = db.my_emails_db

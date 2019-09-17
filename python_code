@@ -1,0 +1,104 @@
+#
+#   1) Написать программу, которая собирает входящие письма из своего или тестового почтового ящика
+#   и сложить данные о письмах в базу данных (от кого, дата отправки, тема письма, текст письма)
+#
+#   2) Написать программу, которая собирает «Хиты продаж» с сайтов техники mvideo, onlinetrade
+#   и складывает данные в БД. Магазины можно выбрать свои. Главный критерий выбора: динамически загружаемые товары
+#
+
+
+from selenium import webdriver
+from selenium.webdriver.common.keys import Keys
+import time
+import pymongo
+import ssl
+
+
+def login_to_email():
+    driver = webdriver.Chrome()
+    driver.get('https://mail.ru')
+    try:
+        elem = driver.find_element_by_id('mailbox:login')
+        elem.send_keys('j****')
+        elem.send_keys(Keys.RETURN)
+        time.sleep(1)
+        elem = driver.find_element_by_id("mailbox:password")
+        elem.send_keys('a****')
+        elem.send_keys(Keys.RETURN)
+        time.sleep(2)
+        print('Login - success')
+    except AttributeError:
+        print('Could not login')
+    return driver
+
+
+def parse_html(driver):
+    print('Parsing - start')
+    email_dict = dict()
+    try:
+        email_data = driver.find_elements_by_xpath('//div[@class="b-datalist__item__body"]')
+        for item in email_data:
+            subject_snippet = item.find_element_by_class_name('b-datalist__item__subj').text
+            snippet = item.find_element_by_class_name('b-datalist__item__subj__snippet').text
+            subject = subject_snippet.replace(snippet, '')
+            email_content = item.text.split('\n')
+            email_content[1] = subject
+            email_content.append(snippet)
+            url = item.find_element_by_tag_name('a')
+            url = url.get_attribute('href')
+            url_id = url.split(':')[2]
+            email_content.append(url)
+            email_dict.setdefault(url_id, email_content)
+        print('Parsing - success')
+    except:
+        print('While retrieving data something went wrong..')
+        print("Let's try again")
+        return 0
+    return email_dict
+
+
+def go_to_next_page(driver):
+    print('Next page - call')
+    try:
+        elem = driver.find_element_by_xpath('//body')
+        elem.send_keys(Keys.COMMAND, Keys.ARROW_RIGHT)
+        time.sleep(3)
+        print('Next page - up!')
+    except KeyError:
+        print('cannot go to next page')
+
+
+def upload_to_mongo(upload_data):
+    print('Uploading to Mongo?')
+    mongo_url = 'mongodb+srv://test2:test2@cluster0-bvxkt.gcp.mongodb.net/test?retryWrites=true&w=majority'
+    client = pymongo.MongoClient(mongo_url, ssl=True, ssl_cert_reqs=ssl.CERT_NONE)
+    db = client.get_database('my_emails_db')
+    records = db.my_emails_db
+    records.drop()
+    records.insert_one(upload_data)
+    print(list(records.find({})))
+    print('Upload - success')
+
+
+driver = login_to_email()
+emails_from_page = dict()
+counter = 0
+while True:
+    dict_result = parse_html(driver)
+    if dict_result != 0:
+        emails_from_page.update(dict_result)
+        if counter == len(emails_from_page):
+            print('break at: ', counter)
+            break
+        else:
+            counter = len(emails_from_page)
+        print('Emails - ', counter)
+        go_to_next_page(driver)
+        time.sleep(2)
+    else:
+        print('try one more time')
+
+upload_to_mongo(emails_from_page)
+# pprint.pprint(emails_from_page)
+driver.close()
+print('Program - finished!')
